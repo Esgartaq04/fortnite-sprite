@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sprite Tracker</title>
+<meta name="description" content="Track your Fortnite sprites and cosmetics offline. Works fully in your browser.">
+<meta name="theme-color" content="#0d0b17">
+<meta name="color-scheme" content="dark">
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- ══════════════════ LOGIN ══════════════════ -->
+<section id="view-login" class="view view--login">
+  <div class="login-card">
+    <div class="login-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="46" height="46"><path d="M13.5 2 4 13.2h5.4L8.6 22 20 10.3h-6.1z" fill="currentColor"/></svg>
+    </div>
+    <h1 class="login-title">Sprite<span>Tracker</span></h1>
+    <p class="login-sub">Pick a username. Your list is saved on this device only &mdash; no account, no server.</p>
+
+    <form id="login-form" autocomplete="off" novalidate>
+      <label class="field">
+        <span class="field__label">Username</span>
+        <input id="login-username" type="text" maxlength="24" placeholder="e.g. NoScopeNina"
+               autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      </label>
+      <p id="login-error" class="field__error" role="alert" hidden></p>
+      <button type="submit" class="btn btn--primary btn--block btn--lg">Enter Locker</button>
+    </form>
+
+    <div id="known-users-wrap" class="known-users" hidden>
+      <p class="known-users__label">Saved on this device</p>
+      <div id="known-users" class="known-users__list"></div>
+    </div>
+  </div>
+  <p class="login-foot">Offline-ready PWA &middot; data stays in this browser</p>
+</section>
+
+<!-- ══════════════════ TRACKER ══════════════════ -->
+<section id="view-app" class="view" hidden>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M13.5 2 4 13.2h5.4L8.6 22 20 10.3h-6.1z" fill="currentColor"/></svg>
+      <span>Sprite<b>Tracker</b></span>
+    </div>
+    <div class="topbar__user">
+      <span class="avatar" id="user-avatar" aria-hidden="true">?</span>
+      <span class="topbar__name" id="user-name">player</span>
+      <button id="btn-logout" class="btn btn--ghost btn--sm" type="button">Log Out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <span class="stat__num" id="stat-total">0</span>
+        <span class="stat__label">Tracked</span>
+      </div>
+      <div class="stat stat--acquired">
+        <span class="stat__num" id="stat-acquired">0</span>
+        <span class="stat__label">Acquired</span>
+      </div>
+      <div class="stat stat--mastered">
+        <span class="stat__num" id="stat-mastered">0</span>
+        <span class="stat__label">Mastered</span>
+      </div>
+      <div class="stat stat--missing">
+        <span class="stat__num" id="stat-missing">0</span>
+        <span class="stat__label">Don't Have</span>
+      </div>
+    </div>
+
+    <div class="progress" role="img" aria-label="Collection progress" id="progress-wrap">
+      <div class="progress__bar" id="progress-bar" style="width:0%"></div>
+      <span class="progress__text" id="progress-text">0% collected</span>
+    </div>
+
+    <!-- Add sprite -->
+    <form id="add-form" class="add-bar" autocomplete="off">
+      <input id="add-name" class="add-bar__name" type="text" maxlength="60" placeholder="Add a sprite or item…" required>
+      <select id="add-rarity" class="add-bar__rarity" aria-label="Rarity">
+        <option value="Common">Common</option>
+        <option value="Uncommon">Uncommon</option>
+        <option value="Rare">Rare</option>
+        <option value="Epic" selected>Epic</option>
+        <option value="Legendary">Legendary</option>
+        <option value="Mythic">Mythic</option>
+        <option value="Icon">Icon Series</option>
+      </select>
+      <button type="submit" class="btn btn--primary">+ Add</button>
+    </form>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.5 10.9l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4m0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8" fill="currentColor"/></svg>
+        <input id="search" type="search" placeholder="Search…" aria-label="Search sprites">
+      </div>
+      <div class="filters" role="group" aria-label="Filter by status">
+        <button class="chip is-active" type="button" data-filter="all">All</button>
+        <button class="chip" type="button" data-filter="none">Don't Have</button>
+        <button class="chip" type="button" data-filter="acquired">Acquired</button>
+        <button class="chip" type="button" data-filter="mastered">Mastered</button>
+      </div>
+      <button id="btn-trade" class="btn btn--accent" type="button">Generate Trade List</button>
+    </div>
+
+    <!-- List -->
+    <div id="grid" class="grid"></div>
+
+    <div id="empty" class="empty" hidden>
+      <p class="empty__title">Nothing here yet</p>
+      <p class="empty__text" id="empty-text">Add your first sprite above to start tracking.</p>
+      <button id="btn-seed" class="btn btn--ghost" type="button">Load starter pack</button>
+    </div>
+
+    <footer class="foot">
+      <button id="btn-export" class="linkbtn" type="button">Export backup (.json)</button>
+      <button id="btn-import" class="linkbtn" type="button">Import backup</button>
+      <button id="btn-wipe" class="linkbtn linkbtn--danger" type="button">Clear my list</button>
+      <input id="file-import" type="file" accept="application/json,.json" hidden>
+    </footer>
+  </main>
+</section>
+
+<!-- ══════════════════ TRADE LIST MODAL ══════════════════ -->
+<div id="modal-trade" class="modal" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="trade-title">
+    <div class="modal__head">
+      <h2 id="trade-title">Trade List</h2>
+      <button class="iconbtn" type="button" data-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal__body">
+      <div class="seg seg--sm" role="group" aria-label="List format">
+        <button class="seg__btn is-active" type="button" data-format="grouped">Grouped</button>
+        <button class="seg__btn" type="button" data-format="flat">Flat</button>
+        <button class="seg__btn" type="button" data-format="csv">CSV</button>
+      </div>
+      <textarea id="trade-output" class="trade-output" readonly spellcheck="false" aria-label="Generated trade list"></textarea>
+    </div>
+    <div class="modal__foot">
+      <button id="btn-copy" class="btn btn--primary" type="button">Copy to Clipboard</button>
+      <button id="btn-download" class="btn btn--ghost" type="button">Download .txt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ CONFIRM MODAL ══════════════════ -->
+<div id="modal-confirm" class="modal" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__box modal__box--sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal__head">
+      <h2 id="confirm-title">Are you sure?</h2>
+    </div>
+    <div class="modal__body"><p id="confirm-text" class="confirm-text"></p></div>
+    <div class="modal__foot">
+      <button id="confirm-yes" class="btn btn--danger" type="button">Delete</button>
+      <button class="btn btn--ghost" type="button" data-close>Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<button id="btn-install" class="install" type="button" hidden>Install app</button>
+
+<script src="./app.js"></script>
+</body>
+</html>
