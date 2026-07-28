@@ -15,6 +15,7 @@
 
   var CATALOG = window.SPRITE_CATALOG || { variations: ['Base'], baseSprites: [] };
   var VARIATIONS = CATALOG.variations.slice();
+  var CATALOG_VERSION = CATALOG.catalogVersion || 1;
 
   var STATUSES = [
     { key: 'none',     label: "Don't Have" },
@@ -120,12 +121,22 @@
 
   function dataKey(user) { return DATA_PREFIX + user; }
 
-  function loadItems(user) {
+  /* Storage holds { catalogVersion, items } — but a bare array (what the
+     first versions wrote) is still read correctly. */
+  function loadRecord(user) {
     var raw = safeGet(dataKey(user));
-    if (!raw) return [];
-    try { return normalizeItems(JSON.parse(raw)); }
-    catch (e) { return []; }
+    if (!raw) return { items: [], catalogVersion: 0, existed: false };
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { return { items: [], catalogVersion: 0, existed: false }; }
+    return {
+      items: normalizeItems(parsed),
+      catalogVersion: (parsed && typeof parsed.catalogVersion === 'number') ? parsed.catalogVersion : 0,
+      existed: true
+    };
   }
+
+  function loadItems(user) { return loadRecord(user).items; }
 
   function statusKey(value) {
     if (typeof value !== 'string') return 'none';
@@ -208,7 +219,28 @@
 
   function save() {
     if (!state.user) return;
-    safeSet(dataKey(state.user), JSON.stringify(state.items));
+    safeSet(dataKey(state.user), JSON.stringify({
+      app: 'SpriteTracker',
+      catalogVersion: state.catalogVersion,
+      items: state.items
+    }));
+  }
+
+  /* Adds official sprites the player is missing, leaving saved statuses
+     alone. Returns how many were added. */
+  function mergeCatalog() {
+    var have = {};
+    state.items.forEach(function (i) {
+      have[i.id] = true;
+      have[i.name.toLowerCase()] = true;
+    });
+    var added = 0;
+    catalogItems().forEach(function (item) {
+      if (have[item.id] || have[item.name.toLowerCase()]) return;
+      state.items.push(item);
+      added++;
+    });
+    return added;
   }
 
   function uid() {
@@ -285,8 +317,10 @@
   }
 
   function login(name) {
+    var record = loadRecord(name);
     state.user = name;
-    state.items = loadItems(name);
+    state.items = record.items;
+    state.catalogVersion = record.catalogVersion;
     state.filter = 'all';
     state.variation = 'all';
     state.query = '';
@@ -294,9 +328,13 @@
     el.variation.value = 'all';
     setActiveChip('all');
 
-    // First time this player logs in: start from the full official list.
-    if (!safeGet(dataKey(name)) && !state.items.length) {
-      state.items = catalogItems();
+    /* Seed a new player with the official list — and top up an existing
+       player whose list predates the current catalog, so sprites added
+       in sprites.js reach people who already have saved data. */
+    var newSprites = 0;
+    if (state.catalogVersion !== CATALOG_VERSION) {
+      newSprites = mergeCatalog();
+      state.catalogVersion = CATALOG_VERSION;
     }
     // Write straight back so the seed lands, and so a list saved in an
     // older format is upgraded on disk rather than only in memory.
@@ -313,6 +351,10 @@
     el.appView.hidden = false;
     window.scrollTo(0, 0);
     render();
+
+    if (newSprites && record.existed) {
+      toast('Added ' + newSprites + ' new sprite' + (newSprites === 1 ? '' : 's') + ' to your list');
+    }
   }
 
   function logout() {
@@ -658,17 +700,8 @@
 
   /* Adds any official sprites missing from the list, keeping existing statuses. */
   function restoreCatalog() {
-    var have = {};
-    state.items.forEach(function (i) {
-      have[i.id] = true;
-      have[i.name.toLowerCase()] = true;
-    });
-    var added = 0;
-    catalogItems().forEach(function (item) {
-      if (have[item.id] || have[item.name.toLowerCase()]) return;
-      state.items.push(item);
-      added++;
-    });
+    var added = mergeCatalog();
+    state.catalogVersion = CATALOG_VERSION;
     save();
     render();
     toast(added ? 'Added ' + added + ' sprite' + (added === 1 ? '' : 's') : 'Nothing missing — all official sprites are on your list.');
@@ -943,8 +976,24 @@
      ============================================================ */
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    /* True only when a previous service worker is already running this
+       page — i.e. a repeat visit, not the very first install. */
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloading = false;
+
+    /* When a newly deployed worker takes over, the page is still running
+       the old CSS/JS it booted with. Reload once so the update is live
+       instead of waiting for the visitor to refresh twice. */
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () { /* offline support is optional */ });
+      navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        reg.update();
+      }).catch(function () { /* offline support is optional */ });
     });
   }
 

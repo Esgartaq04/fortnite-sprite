@@ -6,6 +6,11 @@
 
 window.SPRITE_CATALOG = {
 
+  /* Bump this after adding sprites or variations below. Everyone who
+     already has a saved list gets the new entries merged in on their
+     next visit, keeping the statuses they already set. */
+  catalogVersion: 2,
+
   /* Order here is the order they appear on every card. */
   variations: [
     'Base',

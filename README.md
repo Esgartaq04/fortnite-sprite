@@ -109,11 +109,12 @@ returning visitors may keep the old version:
 
 ```js
 // sw.js
-var CACHE_VERSION = 'sprite-tracker-v2';   // v1 → v2
+var CACHE_VERSION = 'sprite-tracker-v3';   // v2 → v3
 ```
 
 Page loads use network-first, so a new `index.html` is picked up as soon as it deploys; the version
-bump is what clears the old CSS/JS.
+bump is what clears the old CSS/JS. When the new worker takes over, the page reloads itself once so
+the update is live immediately instead of on the visitor's second refresh.
 
 ---
 
@@ -127,8 +128,11 @@ bump is what clears the old CSS/JS.
   nothing else.
 * Usernames allow letters, numbers, spaces, `.`, `_` and `-`, 2–24 characters, and are matched
   case-insensitively so `nina` and `Nina` return to the same list.
-* A new player is seeded with the full official list automatically; lists saved by the earlier
-  single-status version are upgraded on next login (the old status lands on `Base`).
+* A new player is seeded with the full official list automatically. Players with an existing list
+  are topped up whenever `catalogVersion` in `sprites.js` is higher than the one stored with their
+  data — sprites they deleted on purpose stay deleted until the next bump.
+* Lists saved by the earlier single-status version are upgraded on next login (the old status lands
+  on `Base`) and kept alongside the official sprites.
 * Sprite names are rendered with `textContent`, never `innerHTML`, so a name containing HTML is
   displayed as plain text rather than executed.
 
@@ -147,7 +151,10 @@ window.SPRITE_CATALOG = {
 };
 ```
 
-* **New sprite** — add an entry with a unique `id`. Players pick it up via *Restore missing sprites*.
+* **New sprite** — add an entry with a unique `id`, then **bump `catalogVersion`**. Everyone who
+  already has a saved list gets the new sprite merged in automatically on their next visit, keeping
+  every status they had set. (Without the bump, only brand-new players see it — existing players
+  would have to press *Restore missing sprites* themselves.)
 * **New variation** — add it to `variations`; existing sprites gain it as `Don't Have`.
 * **Renaming / fixing an ability** — edit it in place. As long as the `id` stays the same, every
   player's saved statuses are kept and the new text appears on their next visit.
