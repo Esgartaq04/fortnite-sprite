@@ -67,7 +67,7 @@
     <div class="stats">
       <div class="stat">
         <span class="stat__num" id="stat-total">0</span>
-        <span class="stat__label">Tracked</span>
+        <span class="stat__label">Variations</span>
       </div>
       <div class="stat stat--acquired">
         <span class="stat__num" id="stat-acquired">0</span>
@@ -90,16 +90,8 @@
 
     <!-- Add sprite -->
     <form id="add-form" class="add-bar" autocomplete="off">
-      <input id="add-name" class="add-bar__name" type="text" maxlength="60" placeholder="Add a sprite or item…" required>
-      <select id="add-rarity" class="add-bar__rarity" aria-label="Rarity">
-        <option value="Common">Common</option>
-        <option value="Uncommon">Uncommon</option>
-        <option value="Rare">Rare</option>
-        <option value="Epic" selected>Epic</option>
-        <option value="Legendary">Legendary</option>
-        <option value="Mythic">Mythic</option>
-        <option value="Icon">Icon Series</option>
-      </select>
+      <input id="add-name" class="add-bar__name" type="text" maxlength="60" placeholder="Add a custom sprite…" required>
+      <input id="add-ability" class="add-bar__ability" type="text" maxlength="140" placeholder="Ability (optional)">
       <button type="submit" class="btn btn--primary">+ Add</button>
     </form>
 
@@ -107,8 +99,11 @@
     <div class="toolbar">
       <div class="search">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.5 10.9l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4m0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8" fill="currentColor"/></svg>
-        <input id="search" type="search" placeholder="Search…" aria-label="Search sprites">
+        <input id="search" type="search" placeholder="Search sprites or abilities…" aria-label="Search sprites">
       </div>
+      <select id="variation-filter" aria-label="Filter by variation">
+        <option value="all">All variations</option>
+      </select>
       <div class="filters" role="group" aria-label="Filter by status">
         <button class="chip is-active" type="button" data-filter="all">All</button>
         <button class="chip" type="button" data-filter="none">Don't Have</button>
@@ -118,16 +113,28 @@
       <button id="btn-trade" class="btn btn--accent" type="button">Generate Trade List</button>
     </div>
 
+    <!-- Legend -->
+    <p class="legend">
+      Tap a variation to cycle
+      <span class="legend__key legend__key--none">Don't Have</span>
+      <span class="legend__arrow">→</span>
+      <span class="legend__key legend__key--acquired">Acquired</span>
+      <span class="legend__arrow">→</span>
+      <span class="legend__key legend__key--mastered">Mastered</span>
+      <span class="legend__hint">(right-click or shift-tap to go back)</span>
+    </p>
+
     <!-- List -->
     <div id="grid" class="grid"></div>
 
     <div id="empty" class="empty" hidden>
       <p class="empty__title">Nothing here yet</p>
-      <p class="empty__text" id="empty-text">Add your first sprite above to start tracking.</p>
-      <button id="btn-seed" class="btn btn--ghost" type="button">Load starter pack</button>
+      <p class="empty__text" id="empty-text">Load the official sprite list to start tracking.</p>
+      <button id="btn-seed" class="btn btn--ghost" type="button">Load official sprite list</button>
     </div>
 
     <footer class="foot">
+      <button id="btn-restore" class="linkbtn" type="button">Restore missing sprites</button>
       <button id="btn-export" class="linkbtn" type="button">Export backup (.json)</button>
       <button id="btn-import" class="linkbtn" type="button">Import backup</button>
       <button id="btn-wipe" class="linkbtn linkbtn--danger" type="button">Clear my list</button>
@@ -146,8 +153,8 @@
     </div>
     <div class="modal__body">
       <div class="seg seg--sm" role="group" aria-label="List format">
-        <button class="seg__btn is-active" type="button" data-format="grouped">Grouped</button>
-        <button class="seg__btn" type="button" data-format="flat">Flat</button>
+        <button class="seg__btn is-active" type="button" data-format="grouped">By status</button>
+        <button class="seg__btn" type="button" data-format="sprite">By sprite</button>
         <button class="seg__btn" type="button" data-format="csv">CSV</button>
       </div>
       <textarea id="trade-output" class="trade-output" readonly spellcheck="false" aria-label="Generated trade list"></textarea>
@@ -178,6 +185,7 @@
 
 <button id="btn-install" class="install" type="button" hidden>Install app</button>
 
+<script src="./sprites.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

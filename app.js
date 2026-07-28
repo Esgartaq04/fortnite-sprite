@@ -1,61 +1,48 @@
 /* ============================================================
    SpriteTracker — vanilla JS, 100% client-side.
-   Data lives in localStorage under  spriteData_<Username>
+
+   Data model: one entry per BASE sprite, holding a status for
+   every variation:
+
+     { id, name, ability, custom, status: { Base: 'none', Gold: 'acquired', … } }
+
+   Saved to localStorage under  spriteData_<Username>
    ============================================================ */
 (function () {
   'use strict';
 
-  /* ---------- constants ---------- */
+  /* ---------- catalog ---------- */
+
+  var CATALOG = window.SPRITE_CATALOG || { variations: ['Base'], baseSprites: [] };
+  var VARIATIONS = CATALOG.variations.slice();
 
   var STATUSES = [
     { key: 'none',     label: "Don't Have" },
     { key: 'acquired', label: 'Acquired'   },
     { key: 'mastered', label: 'Mastered'   }
   ];
-
-  var RARITY_COLORS = {
-    Common:    '#9aa4b2',
-    Uncommon:  '#4ade80',
-    Rare:      '#38bdf8',
-    Epic:      '#a78bfa',
-    Legendary: '#fb923c',
-    Mythic:    '#fbbf24',
-    Icon:      '#22d3ee'
-  };
-
-  var RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Icon'];
+  var CYCLE = ['none', 'acquired', 'mastered'];
 
   var SESSION_KEY = 'spriteTracker.session';
   var USERS_KEY   = 'spriteTracker.users';
   var DATA_PREFIX = 'spriteData_';
-
-  /* A starter list the user can load, edit or delete freely. */
-  var STARTER_PACK = [
-    ['Renegade Raider', 'Rare'], ['Black Knight', 'Legendary'], ['Skull Trooper', 'Epic'],
-    ['Ghoul Trooper', 'Epic'], ['Raven', 'Legendary'], ['Omega', 'Legendary'],
-    ['Drift', 'Legendary'], ['Ikonik', 'Icon'], ['Travis Scott', 'Icon'],
-    ['Midas', 'Legendary'], ['Peely', 'Epic'], ['Fishstick', 'Rare'],
-    ['Aura', 'Uncommon'], ['Crystal', 'Uncommon'], ['Recon Expert', 'Rare'],
-    ['Star Wand', 'Rare'], ['Reaper Pickaxe', 'Legendary'], ['Minty Pickaxe', 'Rare'],
-    ['Floss Emote', 'Rare'], ['Take the L', 'Rare']
-  ];
 
   /* ---------- element lookup ---------- */
 
   function $(id) { return document.getElementById(id); }
 
   var el = {
-    loginView:   $('view-login'),
-    loginForm:   $('login-form'),
-    loginInput:  $('login-username'),
-    loginError:  $('login-error'),
-    knownWrap:   $('known-users-wrap'),
-    knownList:   $('known-users'),
+    loginView:  $('view-login'),
+    loginForm:  $('login-form'),
+    loginInput: $('login-username'),
+    loginError: $('login-error'),
+    knownWrap:  $('known-users-wrap'),
+    knownList:  $('known-users'),
 
-    appView:     $('view-app'),
-    userName:    $('user-name'),
-    userAvatar:  $('user-avatar'),
-    logout:      $('btn-logout'),
+    appView:    $('view-app'),
+    userName:   $('user-name'),
+    userAvatar: $('user-avatar'),
+    logout:     $('btn-logout'),
 
     statTotal:    $('stat-total'),
     statAcquired: $('stat-acquired'),
@@ -65,33 +52,35 @@
     progressText: $('progress-text'),
     progressWrap: $('progress-wrap'),
 
-    addForm:   $('add-form'),
-    addName:   $('add-name'),
-    addRarity: $('add-rarity'),
+    addForm:    $('add-form'),
+    addName:    $('add-name'),
+    addAbility: $('add-ability'),
 
-    search:  $('search'),
-    filters: document.querySelector('.filters'),
-    grid:    $('grid'),
-    empty:   $('empty'),
+    search:    $('search'),
+    variation: $('variation-filter'),
+    filters:   document.querySelector('.filters'),
+    grid:      $('grid'),
+    empty:     $('empty'),
     emptyText: $('empty-text'),
-    seed:    $('btn-seed'),
+    seed:      $('btn-seed'),
 
-    tradeBtn:    $('btn-trade'),
-    tradeModal:  $('modal-trade'),
-    tradeOutput: $('trade-output'),
+    tradeBtn:     $('btn-trade'),
+    tradeModal:   $('modal-trade'),
+    tradeOutput:  $('trade-output'),
     tradeFormats: document.querySelector('#modal-trade .seg'),
-    copyBtn:     $('btn-copy'),
-    downloadBtn: $('btn-download'),
+    copyBtn:      $('btn-copy'),
+    downloadBtn:  $('btn-download'),
 
     confirmModal: $('modal-confirm'),
     confirmTitle: $('confirm-title'),
     confirmText:  $('confirm-text'),
     confirmYes:   $('confirm-yes'),
 
-    exportBtn: $('btn-export'),
-    importBtn: $('btn-import'),
+    restoreBtn: $('btn-restore'),
+    exportBtn:  $('btn-export'),
+    importBtn:  $('btn-import'),
     importFile: $('file-import'),
-    wipeBtn:   $('btn-wipe'),
+    wipeBtn:    $('btn-wipe'),
 
     toast:      $('toast'),
     installBtn: $('btn-install')
@@ -103,6 +92,7 @@
     user: null,
     items: [],
     filter: 'all',
+    variation: 'all',
     query: '',
     tradeFormat: 'grouped'
   };
@@ -133,34 +123,10 @@
   function loadItems(user) {
     var raw = safeGet(dataKey(user));
     if (!raw) return [];
-    var parsed;
-    try { parsed = JSON.parse(raw); }
+    try { return normalizeItems(JSON.parse(raw)); }
     catch (e) { return []; }
-    return normalizeItems(parsed);
   }
 
-  /* Accepts either the current array format or anything close to it. */
-  function normalizeItems(parsed) {
-    var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.items) ? parsed.items : []);
-    var out = [];
-    for (var i = 0; i < list.length; i++) {
-      var raw = list[i];
-      if (typeof raw === 'string') raw = { name: raw };
-      if (!raw || typeof raw.name !== 'string') continue;
-      var name = raw.name.trim().slice(0, 60);
-      if (!name) continue;
-      out.push({
-        id: typeof raw.id === 'string' && raw.id ? raw.id : uid(),
-        name: name,
-        rarity: RARITY_COLORS[raw.rarity] ? raw.rarity : 'Epic',
-        status: statusKey(raw.status),
-        added: typeof raw.added === 'number' ? raw.added : Date.now()
-      });
-    }
-    return out;
-  }
-
-  /* Tolerates both internal keys and the human labels. */
   function statusKey(value) {
     if (typeof value !== 'string') return 'none';
     var v = value.trim().toLowerCase();
@@ -176,13 +142,77 @@
     return STATUSES[0].label;
   }
 
+  function emptyStatus() {
+    var map = {};
+    VARIATIONS.forEach(function (v) { map[v] = 'none'; });
+    return map;
+  }
+
+  /* Accepts the current format, a raw export, or the old flat
+     (one-status-per-item) format from the first version. */
+  function normalizeItems(parsed) {
+    var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.items) ? parsed.items : []);
+    var out = [];
+    var seen = {};
+
+    list.forEach(function (raw) {
+      if (typeof raw === 'string') raw = { name: raw };
+      if (!raw || typeof raw.name !== 'string') return;
+
+      var name = raw.name.trim().slice(0, 60);
+      if (!name) return;
+
+      var status = emptyStatus();
+      if (raw.status && typeof raw.status === 'object') {
+        VARIATIONS.forEach(function (v) { status[v] = statusKey(raw.status[v]); });
+      } else if (typeof raw.status === 'string') {
+        status.Base = statusKey(raw.status);   // migrated from the flat v1 format
+      }
+
+      var id = typeof raw.id === 'string' && raw.id ? raw.id : uid();
+      while (seen[id]) id = uid();
+      seen[id] = true;
+
+      out.push({
+        id: id,
+        name: name,
+        ability: typeof raw.ability === 'string' ? raw.ability.slice(0, 200) : '',
+        custom: raw.custom === true,
+        status: status
+      });
+    });
+
+    return refreshFromCatalog(out);
+  }
+
+  /* Catalog entries keep their saved statuses but pick up any
+     name/ability corrections made in sprites.js. */
+  function refreshFromCatalog(items) {
+    var byId = {};
+    CATALOG.baseSprites.forEach(function (s) { byId[s.id] = s; });
+    items.forEach(function (item) {
+      var source = byId[item.id];
+      if (source && !item.custom) {
+        item.name = source.name;
+        item.ability = source.ability;
+      }
+    });
+    return items;
+  }
+
+  function catalogItems() {
+    return CATALOG.baseSprites.map(function (s) {
+      return { id: s.id, name: s.name, ability: s.ability, custom: false, status: emptyStatus() };
+    });
+  }
+
   function save() {
     if (!state.user) return;
     safeSet(dataKey(state.user), JSON.stringify(state.items));
   }
 
   function uid() {
-    return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
   /* ---------- known users on this device ---------- */
@@ -203,8 +233,9 @@
   }
 
   function forgetUser(name) {
-    var users = knownUsers().filter(function (u) { return u.toLowerCase() !== name.toLowerCase(); });
-    safeSet(USERS_KEY, JSON.stringify(users));
+    safeSet(USERS_KEY, JSON.stringify(knownUsers().filter(function (u) {
+      return u.toLowerCase() !== name.toLowerCase();
+    })));
   }
 
   /* ============================================================
@@ -223,21 +254,31 @@
     el.loginError.hidden = false;
   }
 
+  function ownedCount(items) {
+    var n = 0;
+    items.forEach(function (item) {
+      VARIATIONS.forEach(function (v) { if (item.status[v] !== 'none') n++; });
+    });
+    return n;
+  }
+
   function renderKnownUsers() {
     var users = knownUsers();
     el.knownList.textContent = '';
     el.knownWrap.hidden = users.length === 0;
+
     users.forEach(function (name) {
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'userchip';
       btn.textContent = name;
-      var count = loadItems(name).length;
+
       var meta = document.createElement('span');
-      meta.style.color = 'var(--muted)';
-      meta.style.fontSize = '12px';
-      meta.textContent = count + (count === 1 ? ' item' : ' items');
+      meta.className = 'userchip__meta';
+      var items = loadItems(name);
+      meta.textContent = ownedCount(items) + '/' + (items.length * VARIATIONS.length);
       btn.appendChild(meta);
+
       btn.addEventListener('click', function () { login(name); });
       el.knownList.appendChild(btn);
     });
@@ -247,9 +288,19 @@
     state.user = name;
     state.items = loadItems(name);
     state.filter = 'all';
+    state.variation = 'all';
     state.query = '';
     el.search.value = '';
+    el.variation.value = 'all';
     setActiveChip('all');
+
+    // First time this player logs in: start from the full official list.
+    if (!safeGet(dataKey(name)) && !state.items.length) {
+      state.items = catalogItems();
+    }
+    // Write straight back so the seed lands, and so a list saved in an
+    // older format is upgraded on disk rather than only in memory.
+    save();
 
     rememberUser(name);
     safeSet(SESSION_KEY, name);
@@ -286,31 +337,40 @@
       showLoginError('2–24 characters: letters, numbers, spaces, . _ - only.');
       return;
     }
-    // Reuse the stored spelling if this player already exists on the device.
     var existing = knownUsers().filter(function (u) { return u.toLowerCase() === name.toLowerCase(); })[0];
     showLoginError('');
     login(existing || name);
   });
 
   el.loginInput.addEventListener('input', function () { showLoginError(''); });
-
   el.logout.addEventListener('click', logout);
 
   /* ============================================================
      RENDERING
      ============================================================ */
 
-  function visibleItems() {
-    var q = state.query.toLowerCase();
-    return state.items.filter(function (item) {
-      if (state.filter !== 'all' && item.status !== state.filter) return false;
-      if (q && item.name.toLowerCase().indexOf(q) === -1 && item.rarity.toLowerCase().indexOf(q) === -1) return false;
-      return true;
-    });
+  /* Which variations a card should show, given the variation filter. */
+  function shownVariations() {
+    return state.variation === 'all' ? VARIATIONS : [state.variation];
   }
 
-  function sortItems(list) {
-    return list.slice().sort(function (a, b) {
+  function matchesFilter(item) {
+    if (state.filter === 'all') return true;
+    return shownVariations().some(function (v) { return item.status[v] === state.filter; });
+  }
+
+  function matchesQuery(item) {
+    var q = state.query.toLowerCase();
+    if (!q) return true;
+    return item.name.toLowerCase().indexOf(q) !== -1 ||
+           item.ability.toLowerCase().indexOf(q) !== -1 ||
+           VARIATIONS.some(function (v) { return v.toLowerCase().indexOf(q) !== -1 && q.length > 2; });
+  }
+
+  function visibleItems() {
+    return state.items.filter(function (item) {
+      return matchesFilter(item) && matchesQuery(item);
+    }).sort(function (a, b) {
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     });
   }
@@ -321,14 +381,18 @@
   }
 
   function renderStats() {
-    var total = state.items.length;
+    var vars = shownVariations();
+    var total = state.items.length * vars.length;
     var acquired = 0, mastered = 0;
-    state.items.forEach(function (i) {
-      if (i.status === 'acquired') acquired++;
-      else if (i.status === 'mastered') mastered++;
-    });
-    var owned = acquired + mastered;
 
+    state.items.forEach(function (item) {
+      vars.forEach(function (v) {
+        if (item.status[v] === 'acquired') acquired++;
+        else if (item.status[v] === 'mastered') mastered++;
+      });
+    });
+
+    var owned = acquired + mastered;
     el.statTotal.textContent = total;
     el.statAcquired.textContent = acquired;
     el.statMastered.textContent = mastered;
@@ -341,12 +405,12 @@
   }
 
   function renderGrid() {
-    var list = sortItems(visibleItems());
+    var list = visibleItems();
     el.grid.textContent = '';
 
     if (!state.items.length) {
       el.empty.hidden = false;
-      el.emptyText.textContent = 'Add your first sprite above to start tracking.';
+      el.emptyText.textContent = 'Load the official sprite list to start tracking.';
       el.seed.hidden = false;
       return;
     }
@@ -363,59 +427,112 @@
     el.grid.appendChild(frag);
   }
 
+  function cardCounts(item) {
+    var vars = shownVariations();
+    var owned = 0, mastered = 0;
+    vars.forEach(function (v) {
+      if (item.status[v] === 'mastered') { owned++; mastered++; }
+      else if (item.status[v] === 'acquired') owned++;
+    });
+    return { owned: owned, mastered: mastered, total: vars.length };
+  }
+
   function buildCard(item) {
+    var vars = shownVariations();
+    var counts = cardCounts(item);
+
     var card = document.createElement('article');
-    card.className = 'card' + (item.status === 'acquired' ? ' is-acquired' : item.status === 'mastered' ? ' is-mastered' : '');
+    card.className = 'card';
     card.dataset.id = item.id;
-    card.style.setProperty('--rarity', RARITY_COLORS[item.rarity] || RARITY_COLORS.Epic);
+    if (counts.mastered === counts.total) card.classList.add('is-complete-mastered');
+    else if (counts.owned === counts.total) card.classList.add('is-complete');
 
-    var top = document.createElement('div');
-    top.className = 'card__top';
+    /* header */
+    var head = document.createElement('div');
+    head.className = 'card__head';
 
-    var nameWrap = document.createElement('div');
-    nameWrap.style.flex = '1';
-    nameWrap.style.minWidth = '0';
+    var titleWrap = document.createElement('div');
+    titleWrap.className = 'card__titles';
 
-    var name = document.createElement('div');
+    var name = document.createElement('h3');
     name.className = 'card__name';
     name.textContent = item.name;               // textContent → no HTML injection
+    if (item.custom) {
+      var badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = 'Custom';
+      name.appendChild(badge);
+    }
 
-    var tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = item.rarity === 'Icon' ? 'Icon Series' : item.rarity;
+    var ability = document.createElement('p');
+    ability.className = 'card__ability';
+    ability.textContent = item.ability || 'No ability listed.';
 
-    nameWrap.appendChild(name);
-    nameWrap.appendChild(tag);
+    titleWrap.appendChild(name);
+    titleWrap.appendChild(ability);
+
+    var right = document.createElement('div');
+    right.className = 'card__meta';
+
+    var count = document.createElement('span');
+    count.className = 'card__count';
+    count.dataset.role = 'count';
+    count.textContent = counts.owned + '/' + counts.total;
 
     var del = document.createElement('button');
     del.type = 'button';
-    del.className = 'iconbtn card__del';
+    del.className = 'iconbtn';
     del.dataset.action = 'delete';
     del.setAttribute('aria-label', 'Delete ' + item.name);
     del.textContent = '×';
 
-    top.appendChild(nameWrap);
-    top.appendChild(del);
+    right.appendChild(count);
+    right.appendChild(del);
 
-    var seg = document.createElement('div');
-    seg.className = 'seg';
-    seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Status for ' + item.name);
+    head.appendChild(titleWrap);
+    head.appendChild(right);
 
-    STATUSES.forEach(function (s) {
+    /* variation chips */
+    var vgrid = document.createElement('div');
+    vgrid.className = 'vgrid';
+    vgrid.setAttribute('role', 'group');
+    vgrid.setAttribute('aria-label', 'Variations of ' + item.name);
+
+    vars.forEach(function (v) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'seg__btn' + (item.status === s.key ? ' is-active' : '');
-      btn.dataset.action = 'status';
-      btn.dataset.status = s.key;
-      btn.textContent = s.label;
-      btn.setAttribute('aria-pressed', item.status === s.key ? 'true' : 'false');
-      seg.appendChild(btn);
+      btn.className = 'vchip';
+      btn.dataset.action = 'cycle';
+      btn.dataset.variation = v;
+
+      var label = document.createElement('span');
+      label.className = 'vchip__label';
+      label.textContent = v;
+
+      var mark = document.createElement('span');
+      mark.className = 'vchip__mark';
+      mark.dataset.role = 'mark';
+
+      btn.appendChild(label);
+      btn.appendChild(mark);
+      paintChip(btn, item, v);
+      vgrid.appendChild(btn);
     });
 
-    card.appendChild(top);
-    card.appendChild(seg);
+    card.appendChild(head);
+    card.appendChild(vgrid);
     return card;
+  }
+
+  /* Applies the current status of one variation to its chip. */
+  function paintChip(btn, item, variation) {
+    var status = item.status[variation];
+    btn.dataset.status = status;
+    btn.className = 'vchip is-' + status;
+    btn.setAttribute('aria-label', item.name + ' — ' + variation + ': ' + statusLabel(status));
+    btn.title = variation + ': ' + statusLabel(status);
+    var mark = btn.querySelector('[data-role="mark"]');
+    if (mark) mark.textContent = status === 'mastered' ? '★' : status === 'acquired' ? '✓' : '';
   }
 
   function findItem(id) {
@@ -425,29 +542,64 @@
     return null;
   }
 
-  /* ---------- grid interactions (event delegation) ---------- */
+  /* ---------- grid interactions ---------- */
 
-  el.grid.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-action]');
-    if (!btn) return;
+  function cycleStatus(current, backwards) {
+    var i = CYCLE.indexOf(current);
+    if (i === -1) i = 0;
+    return CYCLE[(i + (backwards ? CYCLE.length - 1 : 1)) % CYCLE.length];
+  }
+
+  function applyCycle(btn, backwards) {
     var card = btn.closest('.card');
     if (!card) return;
     var item = findItem(card.dataset.id);
     if (!item) return;
 
-    if (btn.dataset.action === 'status') {
-      if (item.status === btn.dataset.status) return;
-      item.status = btn.dataset.status;
-      save();
-      render();
-    } else if (btn.dataset.action === 'delete') {
-      askConfirm('Delete sprite?', 'Remove "' + item.name + '" from your list?', 'Delete', function () {
+    var variation = btn.dataset.variation;
+    item.status[variation] = cycleStatus(item.status[variation], backwards);
+    save();
+
+    // With a status filter on, this card may no longer belong — full redraw.
+    if (state.filter !== 'all') { render(); return; }
+
+    paintChip(btn, item, variation);
+    var counts = cardCounts(item);
+    var countEl = card.querySelector('[data-role="count"]');
+    if (countEl) countEl.textContent = counts.owned + '/' + counts.total;
+    card.classList.toggle('is-complete-mastered', counts.mastered === counts.total);
+    card.classList.toggle('is-complete', counts.mastered !== counts.total && counts.owned === counts.total);
+    renderStats();
+  }
+
+  el.grid.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+
+    if (btn.dataset.action === 'cycle') {
+      applyCycle(btn, e.shiftKey);
+      return;
+    }
+
+    if (btn.dataset.action === 'delete') {
+      var card = btn.closest('.card');
+      var item = card && findItem(card.dataset.id);
+      if (!item) return;
+      askConfirm('Delete sprite?', 'Remove "' + item.name + '" and all ' + VARIATIONS.length + ' of its variations from your list?', 'Delete', function () {
         state.items = state.items.filter(function (i) { return i.id !== item.id; });
         save();
         render();
         toast('Deleted "' + item.name + '"');
       });
     }
+  });
+
+  /* Right-click a chip to step backwards through the statuses. */
+  el.grid.addEventListener('contextmenu', function (e) {
+    var btn = e.target.closest('[data-action="cycle"]');
+    if (!btn) return;
+    e.preventDefault();
+    applyCycle(btn, true);
   });
 
   /* ---------- add / filter / search ---------- */
@@ -467,15 +619,16 @@
     state.items.push({
       id: uid(),
       name: name,
-      rarity: el.addRarity.value,
-      status: 'none',
-      added: Date.now()
+      ability: cleanName(el.addAbility.value).slice(0, 200),
+      custom: true,
+      status: emptyStatus()
     });
     save();
     el.addName.value = '';
+    el.addAbility.value = '';
     el.addName.focus();
     render();
-    toast('Added "' + name + '"');
+    toast('Added "' + name + '" with ' + VARIATIONS.length + ' variations');
   });
 
   function setActiveChip(filter) {
@@ -493,71 +646,108 @@
     renderGrid();
   });
 
+  el.variation.addEventListener('change', function () {
+    state.variation = el.variation.value;
+    render();
+  });
+
   el.search.addEventListener('input', function () {
     state.query = el.search.value.trim();
     renderGrid();
   });
 
-  el.seed.addEventListener('click', function () {
+  /* Adds any official sprites missing from the list, keeping existing statuses. */
+  function restoreCatalog() {
+    var have = {};
+    state.items.forEach(function (i) {
+      have[i.id] = true;
+      have[i.name.toLowerCase()] = true;
+    });
     var added = 0;
-    STARTER_PACK.forEach(function (entry) {
-      var exists = state.items.some(function (i) { return i.name.toLowerCase() === entry[0].toLowerCase(); });
-      if (exists) return;
-      state.items.push({ id: uid(), name: entry[0], rarity: entry[1], status: 'none', added: Date.now() });
+    catalogItems().forEach(function (item) {
+      if (have[item.id] || have[item.name.toLowerCase()]) return;
+      state.items.push(item);
       added++;
     });
     save();
     render();
-    toast('Loaded ' + added + ' starter sprites');
-  });
+    toast(added ? 'Added ' + added + ' sprite' + (added === 1 ? '' : 's') : 'Nothing missing — all official sprites are on your list.');
+  }
+
+  el.seed.addEventListener('click', restoreCatalog);
+  el.restoreBtn.addEventListener('click', restoreCatalog);
 
   /* ============================================================
      TRADE LIST (convert / export)
      ============================================================ */
 
-  function ownedItems() {
-    return sortItems(state.items.filter(function (i) { return i.status !== 'none'; }));
+  /* [{ item, variation, status }] for everything not "Don't Have". */
+  function ownedEntries() {
+    var out = [];
+    state.items.slice().sort(function (a, b) {
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    }).forEach(function (item) {
+      VARIATIONS.forEach(function (v) {
+        if (item.status[v] !== 'none') out.push({ item: item, variation: v, status: item.status[v] });
+      });
+    });
+    return out;
   }
 
   function buildTradeList(format) {
-    var owned = ownedItems();
-    var stamp = new Date().toLocaleDateString();
+    var owned = ownedEntries();
 
     if (!owned.length) {
       return "== " + state.user + "'s Fortnite Sprite List ==\n\n" +
              'Nothing marked as Acquired or Mastered yet.\n' +
-             'Set a sprite to "Acquired" or "Mastered" and generate the list again.';
+             'Tap a variation to set it to "Acquired" or "Mastered", then generate the list again.';
     }
 
     if (format === 'csv') {
-      var rows = ['Name,Rarity,Status'];
-      owned.forEach(function (i) {
-        rows.push([csv(i.name), csv(i.rarity === 'Icon' ? 'Icon Series' : i.rarity), csv(statusLabel(i.status))].join(','));
+      var rows = ['Sprite,Variation,Status'];
+      owned.forEach(function (e) {
+        rows.push([csv(e.item.name), csv(e.variation), csv(statusLabel(e.status))].join(','));
       });
       return rows.join('\n');
     }
 
+    var totalCells = state.items.length * VARIATIONS.length;
     var lines = [];
     lines.push("== " + state.user + "'s Fortnite Sprite List ==");
-    lines.push('Generated ' + stamp + ' · ' + owned.length + ' item' + (owned.length === 1 ? '' : 's'));
+    lines.push('Generated ' + new Date().toLocaleDateString() +
+               ' · ' + owned.length + '/' + totalCells + ' variations owned');
     lines.push('');
 
-    if (format === 'flat') {
-      owned.forEach(function (i) {
-        lines.push('- ' + i.name + ' [' + i.rarity + '] — ' + statusLabel(i.status));
+    if (format === 'sprite') {
+      /* One block per sprite, listing only the variations they own. */
+      var currentName = null;
+      owned.forEach(function (e) {
+        if (e.item.name !== currentName) {
+          currentName = e.item.name;
+          var mine = owned.filter(function (o) { return o.item.name === currentName; });
+          lines.push(currentName + ' (' + mine.length + '/' + VARIATIONS.length + ')');
+          mine.forEach(function (o) {
+            lines.push('  • ' + o.variation + ' — ' + statusLabel(o.status));
+          });
+          lines.push('');
+        }
       });
     } else {
-      // grouped: Mastered block, then Acquired block, rarity-sorted inside each
+      /* Grouped by status, variations collapsed onto one line per sprite. */
       [['mastered', 'MASTERED'], ['acquired', 'ACQUIRED']].forEach(function (group) {
-        var members = owned.filter(function (i) { return i.status === group[0]; })
-          .sort(function (a, b) {
-            var d = RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity);
-            return d !== 0 ? d : a.name.localeCompare(b.name);
-          });
+        var members = owned.filter(function (e) { return e.status === group[0]; });
         if (!members.length) return;
+
+        var bySprite = [];
+        var index = {};
+        members.forEach(function (e) {
+          if (!index[e.item.name]) { index[e.item.name] = []; bySprite.push(e.item.name); }
+          index[e.item.name].push(e.variation);
+        });
+
         lines.push('[' + group[1] + '] (' + members.length + ')');
-        members.forEach(function (i) {
-          lines.push('  • ' + i.name + ' (' + (i.rarity === 'Icon' ? 'Icon Series' : i.rarity) + ')');
+        bySprite.forEach(function (spriteName) {
+          lines.push('  • ' + spriteName + ': ' + index[spriteName].join(', '));
         });
         lines.push('');
       });
@@ -638,7 +828,14 @@
      ============================================================ */
 
   el.exportBtn.addEventListener('click', function () {
-    var payload = { app: 'SpriteTracker', version: 1, user: state.user, exported: new Date().toISOString(), items: state.items };
+    var payload = {
+      app: 'SpriteTracker',
+      version: 2,
+      user: state.user,
+      exported: new Date().toISOString(),
+      variations: VARIATIONS,
+      items: state.items
+    };
     downloadFile(slug(state.user) + '-sprites-backup.json', JSON.stringify(payload, null, 2), 'application/json');
     toast('Backup downloaded');
   });
@@ -648,6 +845,7 @@
   el.importFile.addEventListener('change', function () {
     var file = el.importFile.files && el.importFile.files[0];
     if (!file) return;
+
     var reader = new FileReader();
     reader.onload = function () {
       var incoming;
@@ -655,32 +853,36 @@
       catch (e) { toast('That file is not a valid backup.'); return; }
       if (!incoming.length) { toast('No sprites found in that file.'); return; }
 
-      askConfirm('Import backup?', 'Merge ' + incoming.length + ' sprites into your list? Existing sprites with the same name keep their current status.', 'Import', function () {
-        var added = 0;
-        incoming.forEach(function (item) {
-          var exists = state.items.some(function (i) { return i.name.toLowerCase() === item.name.toLowerCase(); });
-          if (exists) return;
-          item.id = uid();
-          state.items.push(item);
-          added++;
+      askConfirm('Import backup?',
+        'Merge ' + incoming.length + ' sprites into your list? Sprites you already track keep their current statuses.',
+        'Import', function () {
+          var have = {};
+          state.items.forEach(function (i) { have[i.id] = true; have[i.name.toLowerCase()] = true; });
+          var added = 0;
+          incoming.forEach(function (item) {
+            if (have[item.id] || have[item.name.toLowerCase()]) return;
+            state.items.push(item);
+            added++;
+          });
+          save();
+          render();
+          toast('Imported ' + added + ' sprite' + (added === 1 ? '' : 's'));
         });
-        save();
-        render();
-        toast('Imported ' + added + ' sprite' + (added === 1 ? '' : 's'));
-      });
     };
     reader.readAsText(file);
     el.importFile.value = '';
   });
 
   el.wipeBtn.addEventListener('click', function () {
-    askConfirm('Clear your list?', 'This deletes every sprite saved for "' + state.user + '" on this device. It cannot be undone.', 'Clear list', function () {
-      state.items = [];
-      try { window.localStorage.removeItem(dataKey(state.user)); } catch (e) {}
-      forgetUser(state.user);
-      render();
-      toast('List cleared');
-    });
+    askConfirm('Clear your list?',
+      'This deletes every sprite and status saved for "' + state.user + '" on this device. It cannot be undone.',
+      'Clear list', function () {
+        state.items = [];
+        try { window.localStorage.removeItem(dataKey(state.user)); } catch (e) {}
+        forgetUser(state.user);
+        render();
+        toast('List cleared');
+      });
   });
 
   /* ============================================================
@@ -766,12 +968,18 @@
     el.installBtn.hidden = true;
   });
 
-  /* Save on the way out, in case of an unsynced change. */
   window.addEventListener('pagehide', save);
 
   /* ============================================================
      BOOT
      ============================================================ */
+
+  VARIATIONS.forEach(function (v) {
+    var option = document.createElement('option');
+    option.value = v;
+    option.textContent = v + ' only';
+    el.variation.appendChild(option);
+  });
 
   renderKnownUsers();
 

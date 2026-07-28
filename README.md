@@ -1,8 +1,11 @@
 # ⚡ SpriteTracker
 
-A dark-themed, installable **Progressive Web App** for tracking Fortnite sprites and items with
-your friends. No backend, no database, no build step — plain HTML, CSS and vanilla JavaScript that
-drops straight onto GitHub Pages.
+A dark-themed, installable **Progressive Web App** for tracking Fortnite sprites with your friends.
+No backend, no database, no build step — plain HTML, CSS and vanilla JavaScript that drops straight
+onto GitHub Pages.
+
+It ships with the **21 official base sprites**, each tracked across all **7 variations**
+(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem) — **147 individually trackable statuses**.
 
 Each player picks a username, and their list is stored in that browser under
 `localStorage["spriteData_<Username>"]`, so several people can share one device without
@@ -16,11 +19,13 @@ overwriting each other.
 |---|---|
 | **Mini login** | Username-gated entry, remembered profiles on the device, one-tap re-login, Log Out button |
 | **Local database** | `localStorage` keyed per username — nothing ever leaves the browser |
-| **Three-state tracking** | `Don't Have` (default) · `Acquired` · `Mastered` |
-| **Add / delete** | Add any sprite with a rarity, delete with a confirm step, duplicate-name guard |
-| **Live stats** | Counts per status plus a collection progress bar |
-| **Search & filter** | Free-text search and one-tap status filters |
-| **Trade list** | Generates plain text from `Acquired` + `Mastered` only, in Grouped / Flat / CSV formats, with Copy to Clipboard and Download |
+| **Per-variation tracking** | Every sprite carries its own status for each of the 7 variations |
+| **Three states** | `Don't Have` (default) · `Acquired` · `Mastered` — tap a variation to cycle forward, right-click or shift-tap to go back |
+| **Sprite abilities** | Each card shows what the sprite actually does |
+| **Add / delete** | Add custom sprites (they get all 7 variations too), delete with a confirm step, restore any official sprites you removed |
+| **Live stats** | Counts per status, a per-card `owned/7` badge and a collection progress bar |
+| **Search & filter** | Search names *and* abilities, filter by status, or focus a single variation (e.g. "Galaxy only") |
+| **Trade list** | Generates plain text from `Acquired` + `Mastered` only, as By status / By sprite / CSV, with Copy to Clipboard and Download |
 | **Backup** | Export/import your list as JSON |
 | **PWA** | `manifest.json` + service worker — installable, works fully offline |
 
@@ -32,6 +37,7 @@ overwriting each other.
 fortnite-sprite/
 ├── index.html          ← markup for the login screen, tracker and modals
 ├── styles.css          ← dark "gamer" theme, responsive down to 320px
+├── sprites.js          ← the sprite catalog: variations + base sprites/abilities
 ├── app.js              ← all logic (login, storage, rendering, trade list, PWA)
 ├── manifest.json       ← PWA metadata (name, icons, colours, start_url)
 ├── sw.js               ← service worker: precache + offline support
@@ -122,13 +128,31 @@ bump is what clears the old CSS/JS.
   nothing else.
 * Usernames allow letters, numbers, spaces, `.`, `_` and `-`, 2–24 characters, and are matched
   case-insensitively so `nina` and `Nina` return to the same list.
+* A new player is seeded with the full official list automatically; lists saved by the earlier
+  single-status version are upgraded on next login (the old status lands on `Base`).
 * Sprite names are rendered with `textContent`, never `innerHTML`, so a name containing HTML is
   displayed as plain text rather than executed.
 
 ## Customising
 
-* **Starter list** — edit `STARTER_PACK` near the top of `app.js`.
-* **Rarities and colours** — edit `RARITY_COLORS` in `app.js` and the `<select id="add-rarity">`
-  options in `index.html`.
+Everything about *what* is tracked lives in **`sprites.js`** — you shouldn't need to touch `app.js`
+to change the list:
+
+```js
+window.SPRITE_CATALOG = {
+  variations: ['Base', 'Gold', 'Gummy', 'Galaxy', 'Holofoil', 'Cube', 'Gem'],
+  baseSprites: [
+    { id: 'air', name: 'Air Sprite', ability: 'Increases sprinting speed and jump height.' },
+    …
+  ]
+};
+```
+
+* **New sprite** — add an entry with a unique `id`. Players pick it up via *Restore missing sprites*.
+* **New variation** — add it to `variations`; existing sprites gain it as `Don't Have`.
+* **Renaming / fixing an ability** — edit it in place. As long as the `id` stays the same, every
+  player's saved statuses are kept and the new text appears on their next visit.
 * **Theme** — every colour is a CSS variable in the `:root` block at the top of `styles.css`.
 * **Trade list wording** — see `buildTradeList()` in `app.js`.
+
+After any change, bump `CACHE_VERSION` in `sw.js` so installed copies refresh.
