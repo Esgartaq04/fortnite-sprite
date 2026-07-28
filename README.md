@@ -59,30 +59,29 @@ only from a domain root.
 
 ## Deploying to GitHub Pages
 
-### If you already have this repo
+### Publishing this repo
 
-1. Push your branch and merge it into `main`.
-2. On GitHub go to **Settings → Pages**.
-3. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-4. Pick branch **`main`** and folder **`/ (root)`**, then hit **Save**.
-5. Wait ~1 minute and open:
-   **`https://<your-username>.github.io/fortnite-sprite/`**
+1. On GitHub go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+3. Pick branch **`main`** and folder **`/ (root)`**, then hit **Save**.
+4. Wait ~1 minute and open:
+   **`https://esgartaq04.github.io/fortnite-sprite/`**
 
-### Starting from scratch
-
-```bash
-git init
-git add .
-git commit -m "SpriteTracker PWA"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git push -u origin main
-```
-
-Then follow steps 2–5 above.
+Pages can publish from *any* branch, not just `main` — if you'd rather keep working on a feature
+branch, just select that branch in step 3 instead.
 
 > **Important:** the files must sit at the repository root (or in a `/docs` folder if you select that
 > option in Settings → Pages). `index.html` has to be at the top level of whatever folder you publish.
+
+### Pushing later changes
+
+```bash
+git add .
+git commit -m "Describe your change"
+git push origin main
+```
+
+Pages redeploys automatically within a minute of each push to the published branch.
 
 ### Testing locally first
 
