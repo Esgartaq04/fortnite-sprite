@@ -25,7 +25,7 @@ overwriting each other.
 | **Add / delete** | Add custom sprites (they get all 7 variations too), delete with a confirm step, restore any official sprites you removed |
 | **Live stats** | Counts per status, a per-card `owned/7` badge and a collection progress bar |
 | **Search & filter** | Search names *and* abilities, filter by status, or focus a single variation (e.g. "Galaxy only") |
-| **Trade list** | Generates plain text from `Acquired` + `Mastered` only, as By status / By sprite / CSV, with Copy to Clipboard and Download |
+| **Trade list** | **Export as List** — `Acquired` + `Mastered` only, as By status / By sprite / CSV. **Export as Grid** — an ASCII table of every sprite × variation using `M` / `A` / `X`. Both with Copy to Clipboard and Download |
 | **Backup** | Export/import your list as JSON |
 | **PWA** | `manifest.json` + service worker — installable, works fully offline |
 
@@ -159,6 +159,7 @@ window.SPRITE_CATALOG = {
 * **Renaming / fixing an ability** — edit it in place. As long as the `id` stays the same, every
   player's saved statuses are kept and the new text appears on their next visit.
 * **Theme** — every colour is a CSS variable in the `:root` block at the top of `styles.css`.
-* **Trade list wording** — see `buildTradeList()` in `app.js`.
+* **Trade list wording** — see `buildTradeList()` in `app.js`; the ASCII table is `buildTradeGrid()`,
+  with column abbreviations in `VARIATION_SHORT` and the cell letters in `GRID_CODE`.
 
 After any change, bump `CACHE_VERSION` in `sw.js` so installed copies refresh.

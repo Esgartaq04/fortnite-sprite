@@ -367,8 +367,10 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .seg__btn[data-status="none"].is-active     { background: #3a3560; }
 .seg__btn[data-status="acquired"].is-active { background: linear-gradient(135deg, var(--cyan), #0e7490); color: #03242c; }
 .seg__btn[data-status="mastered"].is-active { background: linear-gradient(135deg, var(--gold), #d97706); color: #2b1a02; }
-.seg--sm { display: inline-grid; grid-template-columns: repeat(3, auto); margin-bottom: 10px; }
-.seg--sm .seg__btn { padding: 7px 14px; }
+.seg--sm { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 10px; }
+.seg--sm .seg__btn { padding: 8px 12px; }
+.seg--modes { grid-template-columns: repeat(2, 1fr); }
+.seg--modes .seg__btn.is-active { background: linear-gradient(135deg, var(--violet), #6d28d9); color: #fff; }
 
 /* ============================================================
    EMPTY / FOOTER

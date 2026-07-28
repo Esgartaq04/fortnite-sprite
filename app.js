@@ -68,7 +68,8 @@
     tradeBtn:     $('btn-trade'),
     tradeModal:   $('modal-trade'),
     tradeOutput:  $('trade-output'),
-    tradeFormats: document.querySelector('#modal-trade .seg'),
+    tradeModes:   document.getElementById('trade-modes'),
+    tradeFormats: document.getElementById('trade-formats'),
     copyBtn:      $('btn-copy'),
     downloadBtn:  $('btn-download'),
 
@@ -95,6 +96,7 @@
     filter: 'all',
     variation: 'all',
     query: '',
+    tradeMode: 'list',
     tradeFormat: 'grouped'
   };
 
@@ -795,13 +797,95 @@
     return /[",\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value;
   }
 
+  /* ---------- grid export ---------- */
+
+  /* Column headings: short forms keep the table narrow enough to paste. */
+  var VARIATION_SHORT = { Holofoil: 'HOLO' };
+
+  var GRID_CODE = { none: 'X', acquired: 'A', mastered: 'M' };
+
+  function shortVariation(name) {
+    return VARIATION_SHORT[name] || name.toUpperCase();
+  }
+
+  /* "Zero Point Sprite" -> "ZERO POINT": the suffix is on every row anyway. */
+  function gridName(name) {
+    return name.toUpperCase().replace(/\s+SPRITE$/, '');
+  }
+
+  function padRight(text, width) {
+    var out = text;
+    while (out.length < width) out += ' ';
+    return out;
+  }
+
+  function repeatChar(ch, count) {
+    var out = '';
+    for (var i = 0; i < count; i++) out += ch;
+    return out;
+  }
+
+  /* Every sprite gets a row — the point of the grid is seeing the gaps. */
+  function buildTradeGrid() {
+    var items = state.items.slice().sort(function (a, b) {
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+
+    if (!items.length) {
+      return 'No sprites on your list yet.';
+    }
+
+    var width = 12;   // matches the sample layout, grows for longer names
+    items.forEach(function (item) {
+      var len = gridName(item.name).length + 1;
+      if (len > width) width = len;
+    });
+
+    var header = VARIATIONS.map(shortVariation).join('|');
+    var lines = [header];
+
+    var rows = items.map(function (item) {
+      var cells = VARIATIONS.map(function (v) {
+        return '|' + (GRID_CODE[item.status[v]] || GRID_CODE.none);
+      }).join('');
+      return padRight(gridName(item.name), width) + cells;
+    });
+
+    var widest = header.length;
+    rows.forEach(function (row) { if (row.length > widest) widest = row.length; });
+
+    lines.push(repeatChar('-', widest));
+    lines = lines.concat(rows);
+
+    /* One-line key so the letters mean something to whoever you paste this to. */
+    lines.push('');
+    lines.push('M = Mastered   A = Acquired   X = Don\'t Have');
+
+    return lines.join('\n');
+  }
+
   function refreshTrade() {
-    el.tradeOutput.value = buildTradeList(state.tradeFormat);
+    el.tradeOutput.value = state.tradeMode === 'grid'
+      ? buildTradeGrid()
+      : buildTradeList(state.tradeFormat);
+    /* The list sub-formats only apply to the list export. */
+    el.tradeFormats.hidden = state.tradeMode === 'grid';
+    el.tradeOutput.setAttribute('aria-label',
+      state.tradeMode === 'grid' ? 'Generated trade grid' : 'Generated trade list');
   }
 
   el.tradeBtn.addEventListener('click', function () {
     refreshTrade();
     openModal(el.tradeModal);
+  });
+
+  el.tradeModes.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-mode]');
+    if (!btn) return;
+    state.tradeMode = btn.dataset.mode;
+    var all = el.tradeModes.querySelectorAll('.seg__btn');
+    for (var i = 0; i < all.length; i++) all[i].classList.toggle('is-active', all[i] === btn);
+    refreshTrade();
   });
 
   el.tradeFormats.addEventListener('click', function (e) {
@@ -835,9 +919,10 @@
   }
 
   el.downloadBtn.addEventListener('click', function () {
-    var ext = state.tradeFormat === 'csv' ? '.csv' : '.txt';
-    downloadFile(slug(state.user) + '-sprites' + ext, el.tradeOutput.value,
-      state.tradeFormat === 'csv' ? 'text/csv' : 'text/plain');
+    var isCsv = state.tradeMode === 'list' && state.tradeFormat === 'csv';
+    var name = slug(state.user) + '-sprites' + (state.tradeMode === 'grid' ? '-grid' : '');
+    downloadFile(name + (isCsv ? '.csv' : '.txt'), el.tradeOutput.value,
+      isCsv ? 'text/csv' : 'text/plain');
   });
 
   function downloadFile(filename, text, type) {

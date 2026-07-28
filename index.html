@@ -152,7 +152,11 @@
       <button class="iconbtn" type="button" data-close aria-label="Close">&times;</button>
     </div>
     <div class="modal__body">
-      <div class="seg seg--sm" role="group" aria-label="List format">
+      <div class="seg seg--sm seg--modes" id="trade-modes" role="group" aria-label="Export style">
+        <button class="seg__btn is-active" type="button" data-mode="list">Export as List</button>
+        <button class="seg__btn" type="button" data-mode="grid">Export as Grid</button>
+      </div>
+      <div class="seg seg--sm" id="trade-formats" role="group" aria-label="List format">
         <button class="seg__btn is-active" type="button" data-format="grouped">By status</button>
         <button class="seg__btn" type="button" data-format="sprite">By sprite</button>
         <button class="seg__btn" type="button" data-format="csv">CSV</button>
