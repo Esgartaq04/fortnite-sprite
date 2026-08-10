@@ -231,14 +231,16 @@
   /* Adds official sprites the player is missing, leaving saved statuses
      alone. Returns how many were added. */
   function mergeCatalog() {
-    var have = {};
+    /* Ids and names are kept in separate sets: a sprite *named* "Peely"
+       must not block the official sprite whose *id* is "peely". */
+    var haveId = {}, haveName = {};
     state.items.forEach(function (i) {
-      have[i.id] = true;
-      have[i.name.toLowerCase()] = true;
+      haveId[i.id] = true;
+      haveName[i.name.toLowerCase()] = true;
     });
     var added = 0;
     catalogItems().forEach(function (item) {
-      if (have[item.id] || have[item.name.toLowerCase()]) return;
+      if (haveId[item.id] || haveName[item.name.toLowerCase()]) return;
       state.items.push(item);
       added++;
     });
@@ -974,11 +976,11 @@
       askConfirm('Import backup?',
         'Merge ' + incoming.length + ' sprites into your list? Sprites you already track keep their current statuses.',
         'Import', function () {
-          var have = {};
-          state.items.forEach(function (i) { have[i.id] = true; have[i.name.toLowerCase()] = true; });
+          var haveId = {}, haveName = {};
+          state.items.forEach(function (i) { haveId[i.id] = true; haveName[i.name.toLowerCase()] = true; });
           var added = 0;
           incoming.forEach(function (item) {
-            if (have[item.id] || have[item.name.toLowerCase()]) return;
+            if (haveId[item.id] || haveName[item.name.toLowerCase()]) return;
             state.items.push(item);
             added++;
           });

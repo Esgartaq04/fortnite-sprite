@@ -9,7 +9,7 @@ window.SPRITE_CATALOG = {
   /* Bump this after adding sprites or variations below. Everyone who
      already has a saved list gets the new entries merged in on their
      next visit, keeping the statuses they already set. */
-  catalogVersion: 2,
+  catalogVersion: 3,
 
   /* Order here is the order they appear on every card. */
   variations: [
@@ -19,11 +19,12 @@ window.SPRITE_CATALOG = {
     'Galaxy',
     'Holofoil',
     'Cube',
-    'Gem'
+    'Gem',
+    'Quack'
   ],
 
   baseSprites: [
-    { id: 'air',           name: 'Air Sprite',        ability: 'Increases sprinting speed and jump height.' },
+    { id: 'air',           name: 'Air Sprite',        ability: 'Increases sprinting speed and jump height. Also nullifies fall damage.' },
     { id: 'aura',          name: 'Aura Sprite',       ability: 'Grants a Shock Rock charge when dealing enough damage.' },
     { id: 'batman',        name: 'Batman Sprite',     ability: 'Launches you upwards to deploy the Bat Cape.' },
     { id: 'boss',          name: 'Boss Sprite',       ability: 'Boosts maximum Health and Shield.' },
@@ -36,7 +37,11 @@ window.SPRITE_CATALOG = {
     { id: 'fishy',         name: 'Fishy Sprite',      ability: 'Swim faster and brief speed boost when taking damage.' },
     { id: 'ghost',         name: 'Ghost Sprite',      ability: 'Grants Cloaking when reloading.' },
     { id: 'grim',          name: 'Grim Sprite',       ability: 'Scans and reveals opponents who attack you.' },
+    { id: 'ironmouse',     name: 'Ironmouse Sprite',  ability: 'Regenerates Health when low; grants Cloak and Low Gravity while regenerating.' },
+    { id: 'john_wick',     name: 'John Wick Sprite',  ability: 'Knocking a player reveals other opponents nearby.' },
     { id: 'king',          name: 'King Sprite',       ability: 'Increases Pickaxe damage.' },
+    { id: 'llama',         name: 'Llama Sprite',      ability: 'Opening ammo boxes has a chance to grant a weapon upgrade.' },
+    { id: 'peely',         name: 'Peely Sprite',      ability: 'Pings nearby players carrying rare Sprites, but marks you on the map in return.' },
     { id: 'pollo',         name: 'Pollo Sprite',      ability: 'Replenishes Shield for squad after eliminations.' },
     { id: 'punk',          name: 'Punk Sprite',       ability: 'Grants unlimited ammo buff at Level 5.' },
     { id: 'seven',         name: 'Seven Sprite',      ability: 'Reveals enemy foot trails to squadmates.' },

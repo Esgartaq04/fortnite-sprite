@@ -4,7 +4,7 @@
    what makes visitors pick up the new build.
    ============================================================ */
 
-var CACHE_VERSION = 'sprite-tracker-v3';
+var CACHE_VERSION = 'sprite-tracker-v4';
 
 /* Relative URLs resolve against the service worker's scope, so this
    works both at a domain root and under /<repo-name>/ on GitHub Pages. */

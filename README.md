@@ -4,8 +4,8 @@ A dark-themed, installable **Progressive Web App** for tracking Fortnite sprites
 No backend, no database, no build step — plain HTML, CSS and vanilla JavaScript that drops straight
 onto GitHub Pages.
 
-It ships with the **21 official base sprites**, each tracked across all **7 variations**
-(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem) — **147 individually trackable statuses**.
+It ships with the **25 official base sprites**, each tracked across all **8 variations**
+(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem, Quack) — **200 individually trackable statuses**.
 
 Each player picks a username, and their list is stored in that browser under
 `localStorage["spriteData_<Username>"]`, so several people can share one device without
@@ -19,11 +19,11 @@ overwriting each other.
 |---|---|
 | **Mini login** | Username-gated entry, remembered profiles on the device, one-tap re-login, Log Out button |
 | **Local database** | `localStorage` keyed per username — nothing ever leaves the browser |
-| **Per-variation tracking** | Every sprite carries its own status for each of the 7 variations |
+| **Per-variation tracking** | Every sprite carries its own status for each of the 8 variations |
 | **Three states** | `Don't Have` (default) · `Acquired` · `Mastered` — tap a variation to cycle forward, right-click or shift-tap to go back |
 | **Sprite abilities** | Each card shows what the sprite actually does |
-| **Add / delete** | Add custom sprites (they get all 7 variations too), delete with a confirm step, restore any official sprites you removed |
-| **Live stats** | Counts per status, a per-card `owned/7` badge and a collection progress bar |
+| **Add / delete** | Add custom sprites (they get all 8 variations too), delete with a confirm step, restore any official sprites you removed |
+| **Live stats** | Counts per status, a per-card `owned/8` badge and a collection progress bar |
 | **Search & filter** | Search names *and* abilities, filter by status, or focus a single variation (e.g. "Galaxy only") |
 | **Trade list** | **Export as List** — `Acquired` + `Mastered` only, as By status / By sprite / CSV. **Export as Grid** — an ASCII table of every sprite × variation using `M` / `A` / `X`. Both with Copy to Clipboard and Download |
 | **Backup** | Export/import your list as JSON |
@@ -109,7 +109,7 @@ returning visitors may keep the old version:
 
 ```js
 // sw.js
-var CACHE_VERSION = 'sprite-tracker-v3';   // v2 → v3
+var CACHE_VERSION = 'sprite-tracker-v4';   // v3 → v4
 ```
 
 Page loads use network-first, so a new `index.html` is picked up as soon as it deploys; the version
@@ -143,7 +143,7 @@ to change the list:
 
 ```js
 window.SPRITE_CATALOG = {
-  variations: ['Base', 'Gold', 'Gummy', 'Galaxy', 'Holofoil', 'Cube', 'Gem'],
+  variations: ['Base', 'Gold', 'Gummy', 'Galaxy', 'Holofoil', 'Cube', 'Gem', 'Quack'],
   baseSprites: [
     { id: 'air', name: 'Air Sprite', ability: 'Increases sprinting speed and jump height.' },
     …
