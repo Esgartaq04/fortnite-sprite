@@ -9,9 +9,11 @@ window.SPRITE_CATALOG = {
   /* Bump this after adding sprites or variations below. Everyone who
      already has a saved list gets the new entries merged in on their
      next visit, keeping the statuses they already set. */
-  catalogVersion: 3,
+  catalogVersion: 4,
 
-  /* Order here is the order they appear on every card. */
+  /* The variations a sprite has unless it says otherwise. A sprite can
+     override this with its own `variations: [...]` list — see Burnt Peanut.
+     Order here is the order they appear on every card. */
   variations: [
     'Base',
     'Gold',
@@ -28,7 +30,9 @@ window.SPRITE_CATALOG = {
     { id: 'aura',          name: 'Aura Sprite',       ability: 'Grants a Shock Rock charge when dealing enough damage.' },
     { id: 'batman',        name: 'Batman Sprite',     ability: 'Launches you upwards to deploy the Bat Cape.' },
     { id: 'boss',          name: 'Boss Sprite',       ability: 'Boosts maximum Health and Shield.' },
-    { id: 'burnt_peanut',  name: 'Burnt Peanut',      ability: 'Small chance to drop additional loot from eliminations.' },
+    /* Burnt Peanut only exists in its base form. */
+    { id: 'burnt_peanut',  name: 'Burnt Peanut',      ability: 'Small chance to drop additional loot from eliminations.',
+      variations: ['Base'] },
     { id: 'demon',         name: 'Demon Sprite',      ability: 'Grants Siphon on eliminations.' },
     { id: 'dream',         name: 'Dream Sprite',      ability: 'Gives a random item per level up; explodes with Legendary loot at max level.' },
     { id: 'duck',          name: 'Duck Sprite',       ability: 'Replenishes Shield when Emoting or Jamming.' },

@@ -155,9 +155,23 @@
     return STATUSES[0].label;
   }
 
-  function emptyStatus() {
+  /* A sprite may declare its own `variations` list (e.g. Burnt Peanut is
+     Base only). Anything not declared gets the full catalog list. The list
+     is intersected with the global one so grid columns stay consistent. */
+  function variationsFor(item) {
+    if (!item || !item.variations || !item.variations.length) return VARIATIONS;
+    return item.variations;
+  }
+
+  function narrowVariations(list) {
+    if (!list || !list.length) return null;
+    var allowed = VARIATIONS.filter(function (v) { return list.indexOf(v) !== -1; });
+    return allowed.length ? allowed : null;
+  }
+
+  function emptyStatus(variations) {
     var map = {};
-    VARIATIONS.forEach(function (v) { map[v] = 'none'; });
+    (variations || VARIATIONS).forEach(function (v) { map[v] = 'none'; });
     return map;
   }
 
@@ -175,9 +189,13 @@
       var name = raw.name.trim().slice(0, 60);
       if (!name) return;
 
-      var status = emptyStatus();
+      /* Kept raw here — which variations survive depends on the catalog
+         entry, which is applied in refreshFromCatalog() below. */
+      var status = {};
       if (raw.status && typeof raw.status === 'object') {
-        VARIATIONS.forEach(function (v) { status[v] = statusKey(raw.status[v]); });
+        VARIATIONS.forEach(function (v) {
+          if (raw.status[v] !== undefined) status[v] = statusKey(raw.status[v]);
+        });
       } else if (typeof raw.status === 'string') {
         status.Base = statusKey(raw.status);   // migrated from the flat v1 format
       }
@@ -191,6 +209,7 @@
         name: name,
         ability: typeof raw.ability === 'string' ? raw.ability.slice(0, 200) : '',
         custom: raw.custom === true,
+        variations: narrowVariations(raw.variations),
         status: status
       });
     });
@@ -208,14 +227,30 @@
       if (source && !item.custom) {
         item.name = source.name;
         item.ability = source.ability;
+        item.variations = narrowVariations(source.variations);
       }
+      /* Drop statuses for variations this sprite doesn't have, and default
+         any newly added variation to "Don't Have". */
+      var final = {};
+      variationsFor(item).forEach(function (v) {
+        final[v] = statusKey(item.status[v]);
+      });
+      item.status = final;
     });
     return items;
   }
 
   function catalogItems() {
     return CATALOG.baseSprites.map(function (s) {
-      return { id: s.id, name: s.name, ability: s.ability, custom: false, status: emptyStatus() };
+      var variations = narrowVariations(s.variations);
+      return {
+        id: s.id,
+        name: s.name,
+        ability: s.ability,
+        custom: false,
+        variations: variations,
+        status: emptyStatus(variations)
+      };
     });
   }
 
@@ -293,8 +328,14 @@
   function ownedCount(items) {
     var n = 0;
     items.forEach(function (item) {
-      VARIATIONS.forEach(function (v) { if (item.status[v] !== 'none') n++; });
+      variationsFor(item).forEach(function (v) { if (item.status[v] !== 'none') n++; });
     });
+    return n;
+  }
+
+  function cellCount(items) {
+    var n = 0;
+    items.forEach(function (item) { n += variationsFor(item).length; });
     return n;
   }
 
@@ -312,7 +353,7 @@
       var meta = document.createElement('span');
       meta.className = 'userchip__meta';
       var items = loadItems(name);
-      meta.textContent = ownedCount(items) + '/' + (items.length * VARIATIONS.length);
+      meta.textContent = ownedCount(items) + '/' + cellCount(items);
       btn.appendChild(meta);
 
       btn.addEventListener('click', function () { login(name); });
@@ -395,14 +436,20 @@
      RENDERING
      ============================================================ */
 
-  /* Which variations a card should show, given the variation filter. */
-  function shownVariations() {
-    return state.variation === 'all' ? VARIATIONS : [state.variation];
+  /* Which variations a card should show: the sprite's own list, narrowed
+     by the variation filter. Empty means this sprite has no matching
+     variation and should drop out of the view entirely. */
+  function shownVariations(item) {
+    var available = variationsFor(item);
+    if (state.variation === 'all') return available;
+    return available.indexOf(state.variation) === -1 ? [] : [state.variation];
   }
 
   function matchesFilter(item) {
+    var shown = shownVariations(item);
+    if (!shown.length) return false;          // filtered to a variation it lacks
     if (state.filter === 'all') return true;
-    return shownVariations().some(function (v) { return item.status[v] === state.filter; });
+    return shown.some(function (v) { return item.status[v] === state.filter; });
   }
 
   function matchesQuery(item) {
@@ -427,11 +474,11 @@
   }
 
   function renderStats() {
-    var vars = shownVariations();
-    var total = state.items.length * vars.length;
-    var acquired = 0, mastered = 0;
+    var total = 0, acquired = 0, mastered = 0;
 
     state.items.forEach(function (item) {
+      var vars = shownVariations(item);
+      total += vars.length;
       vars.forEach(function (v) {
         if (item.status[v] === 'acquired') acquired++;
         else if (item.status[v] === 'mastered') mastered++;
@@ -474,7 +521,7 @@
   }
 
   function cardCounts(item) {
-    var vars = shownVariations();
+    var vars = shownVariations(item);
     var owned = 0, mastered = 0;
     vars.forEach(function (v) {
       if (item.status[v] === 'mastered') { owned++; mastered++; }
@@ -484,7 +531,7 @@
   }
 
   function buildCard(item) {
-    var vars = shownVariations();
+    var vars = shownVariations(item);
     var counts = cardCounts(item);
 
     var card = document.createElement('article');
@@ -631,7 +678,7 @@
       var card = btn.closest('.card');
       var item = card && findItem(card.dataset.id);
       if (!item) return;
-      askConfirm('Delete sprite?', 'Remove "' + item.name + '" and all ' + VARIATIONS.length + ' of its variations from your list?', 'Delete', function () {
+      askConfirm('Delete sprite?', 'Remove "' + item.name + '" and all ' + variationsFor(item).length + ' of its variations from your list?', 'Delete', function () {
         state.items = state.items.filter(function (i) { return i.id !== item.id; });
         save();
         render();
@@ -724,7 +771,7 @@
     state.items.slice().sort(function (a, b) {
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     }).forEach(function (item) {
-      VARIATIONS.forEach(function (v) {
+      variationsFor(item).forEach(function (v) {
         if (item.status[v] !== 'none') out.push({ item: item, variation: v, status: item.status[v] });
       });
     });
@@ -748,7 +795,7 @@
       return rows.join('\n');
     }
 
-    var totalCells = state.items.length * VARIATIONS.length;
+    var totalCells = cellCount(state.items);
     var lines = [];
     lines.push("== " + state.user + "'s Fortnite Sprite List ==");
     lines.push('Generated ' + new Date().toLocaleDateString() +
@@ -762,7 +809,7 @@
         if (e.item.name !== currentName) {
           currentName = e.item.name;
           var mine = owned.filter(function (o) { return o.item.name === currentName; });
-          lines.push(currentName + ' (' + mine.length + '/' + VARIATIONS.length + ')');
+          lines.push(currentName + ' (' + mine.length + '/' + variationsFor(mine[0].item).length + ')');
           mine.forEach(function (o) {
             lines.push('  • ' + o.variation + ' — ' + statusLabel(o.status));
           });
@@ -806,6 +853,9 @@
 
   var GRID_CODE = { none: 'X', acquired: 'A', mastered: 'M' };
 
+  /* Shown where a sprite simply doesn't come in that variation. */
+  var GRID_UNAVAILABLE = '-';
+
   function shortVariation(name) {
     return VARIATION_SHORT[name] || name.toUpperCase();
   }
@@ -847,7 +897,9 @@
     var lines = [header];
 
     var rows = items.map(function (item) {
+      var available = variationsFor(item);
       var cells = VARIATIONS.map(function (v) {
+        if (available.indexOf(v) === -1) return '|' + GRID_UNAVAILABLE;
         return '|' + (GRID_CODE[item.status[v]] || GRID_CODE.none);
       }).join('');
       return padRight(gridName(item.name), width) + cells;
@@ -861,7 +913,7 @@
 
     /* One-line key so the letters mean something to whoever you paste this to. */
     lines.push('');
-    lines.push('M = Mastered   A = Acquired   X = Don\'t Have');
+    lines.push('M = Mastered   A = Acquired   X = Don\'t Have   - = Not available');
 
     return lines.join('\n');
   }
