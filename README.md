@@ -4,8 +4,9 @@ A dark-themed, installable **Progressive Web App** for tracking Fortnite sprites
 No backend, no database, no build step — plain HTML, CSS and vanilla JavaScript that drops straight
 onto GitHub Pages.
 
-It ships with the **25 official base sprites**, each tracked across all **8 variations**
-(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem, Quack) — **200 individually trackable statuses**.
+It ships with the **25 official base sprites** tracked across the **8 variations**
+(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem, Quack). Sprites that don't come in every variation
+declare their own list — Burnt Peanut, for instance, is Base only.
 
 Each player picks a username, and their list is stored in that browser under
 `localStorage["spriteData_<Username>"]`, so several people can share one device without
@@ -19,13 +20,13 @@ overwriting each other.
 |---|---|
 | **Mini login** | Username-gated entry, remembered profiles on the device, one-tap re-login, Log Out button |
 | **Local database** | `localStorage` keyed per username — nothing ever leaves the browser |
-| **Per-variation tracking** | Every sprite carries its own status for each of the 8 variations |
+| **Per-variation tracking** | Every sprite carries its own status per variation, and only shows the variations it actually has |
 | **Three states** | `Don't Have` (default) · `Acquired` · `Mastered` — tap a variation to cycle forward, right-click or shift-tap to go back |
 | **Sprite abilities** | Each card shows what the sprite actually does |
 | **Add / delete** | Add custom sprites (they get all 8 variations too), delete with a confirm step, restore any official sprites you removed |
 | **Live stats** | Counts per status, a per-card `owned/8` badge and a collection progress bar |
 | **Search & filter** | Search names *and* abilities, filter by status, or focus a single variation (e.g. "Galaxy only") |
-| **Trade list** | **Export as List** — `Acquired` + `Mastered` only, as By status / By sprite / CSV. **Export as Grid** — an ASCII table of every sprite × variation using `M` / `A` / `X`. Both with Copy to Clipboard and Download |
+| **Trade list** | **Export as List** — `Acquired` + `Mastered` only, as By status / By sprite / CSV. **Export as Grid** — an ASCII table of every sprite × variation using `M` / `A` / `X` / `-`. Both with Copy to Clipboard and Download |
 | **Backup** | Export/import your list as JSON |
 | **PWA** | `manifest.json` + service worker — installable, works fully offline |
 
@@ -109,7 +110,7 @@ returning visitors may keep the old version:
 
 ```js
 // sw.js
-var CACHE_VERSION = 'sprite-tracker-v4';   // v3 → v4
+var CACHE_VERSION = 'sprite-tracker-v5';   // v4 → v5
 ```
 
 Page loads use network-first, so a new `index.html` is picked up as soon as it deploys; the version
@@ -156,6 +157,15 @@ window.SPRITE_CATALOG = {
   every status they had set. (Without the bump, only brand-new players see it — existing players
   would have to press *Restore missing sprites* themselves.)
 * **New variation** — add it to `variations`; existing sprites gain it as `Don't Have`.
+* **A sprite that doesn't come in every variation** — give that entry its own list:
+
+  ```js
+  { id: 'burnt_peanut', name: 'Burnt Peanut', ability: '…', variations: ['Base'] }
+  ```
+
+  The card then shows only those chips, totals and the progress bar count only those cells, the
+  variation filter hides the sprite when you focus a variation it lacks, and the grid export prints
+  `-` for it. Statuses saved for a variation you later remove are dropped on the next login.
 * **Renaming / fixing an ability** — edit it in place. As long as the `id` stays the same, every
   player's saved statuses are kept and the new text appears on their next visit.
 * **Theme** — every colour is a CSS variable in the `:root` block at the top of `styles.css`.
