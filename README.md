@@ -5,8 +5,9 @@ No backend, no database, no build step — plain HTML, CSS and vanilla JavaScrip
 onto GitHub Pages.
 
 It ships with the **25 official base sprites** tracked across the **8 variations**
-(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem, Quack). Sprites that don't come in every variation
-declare their own list — Burnt Peanut, for instance, is Base only.
+(Base, Gold, Gummy, Galaxy, Holofoil, Cube, Gem, Quack) — **117 individually trackable statuses**.
+Most sprites don't come in every variation, so each one declares exactly which it has; for example
+Burnt Peanut is Base only, and Quack currently only exists for Earth, Fire, Water and Zero Point.
 
 Each player picks a username, and their list is stored in that browser under
 `localStorage["spriteData_<Username>"]`, so several people can share one device without
@@ -110,7 +111,7 @@ returning visitors may keep the old version:
 
 ```js
 // sw.js
-var CACHE_VERSION = 'sprite-tracker-v5';   // v4 → v5
+var CACHE_VERSION = 'sprite-tracker-v6';   // v5 → v6
 ```
 
 Page loads use network-first, so a new `index.html` is picked up as soon as it deploys; the version
